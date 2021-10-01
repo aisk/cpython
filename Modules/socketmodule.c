@@ -512,18 +512,6 @@ remove_unusable_flags(PyObject *m)
 static PyObject *socket_herror;
 static PyObject *socket_gaierror;
 
-typedef struct {
-    PyTypeObject *sock_type;
-} _socket_module_state;
-
-static inline _socket_module_state *
-get_socket_state(PyObject *module)
-{
-    void *state = PyModule_GetState(module);
-    assert(state != NULL);
-    return (_socket_module_state *)state;
-}
-
 #if defined(HAVE_POLL_H)
 #include <poll.h>
 #elif defined(HAVE_SYS_POLL_H)
@@ -550,6 +538,18 @@ get_socket_state(PyObject *module)
  * little white lie. */
 #define IS_SELECTABLE(s) (_PyIsSelectable_fd((s)->sock_fd) || (s)->sock_timeout <= 0)
 #endif
+
+typedef struct {
+    PyTypeObject *sock_type;
+} _socket_module_state;
+
+static inline _socket_module_state *
+get_socket_state(PyObject *module)
+{
+    void *state = PyModule_GetState(module);
+    assert(state != NULL);
+    return (_socket_module_state *)state;
+}
 
 static PyObject*
 select_error(void)
@@ -7040,6 +7040,27 @@ sock_get_api(PyObject *module)
     return capi;
 }
 
+static int
+_socket_module_traverse(PyObject *module, visitproc visit, void *arg)
+{
+    _socket_module_state *state = get_socket_state(module);
+    Py_VISIT(state->sock_type);
+    return 0;
+}
+
+static int
+_socket_module_clear(PyObject *module)
+{
+    _socket_module_state *state = get_socket_state(module);
+    Py_CLEAR(state->sock_type);
+    return 0;
+}
+
+static void
+_socket_module_free(void *module)
+{
+    _socket_module_clear((PyObject *)module);
+}
 
 /* Initialize the _socket module.
 
@@ -7063,9 +7084,9 @@ static struct PyModuleDef socketmodule = {
     sizeof(_socket_module_state),
     socket_methods,
     NULL,
-    NULL,
-    NULL,
-    NULL
+    _socket_module_traverse,
+    _socket_module_clear,
+    _socket_module_free
 };
 
 PyMODINIT_FUNC
