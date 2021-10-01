@@ -516,7 +516,7 @@ static PyObject *socket_gaierror;
    The sock_type variable contains pointers to various functions,
    some of which call new_sockobject(), which uses sock_type, so
    there has to be a circular reference. */
-static PyTypeObject sock_type;
+static PyTypeObject *sock_type;
 
 #if defined(HAVE_POLL_H)
 #include <poll.h>
@@ -1006,7 +1006,7 @@ new_sockobject(SOCKET_T fd, int family, int type, int proto)
 {
     PySocketSockObject *s;
     s = (PySocketSockObject *)
-        PyType_GenericNew(&sock_type, NULL, NULL);
+        PyType_GenericNew(sock_type, NULL, NULL);
     if (s == NULL)
         return NULL;
     if (init_sockobject(s, fd, family, type, proto) == -1) {
@@ -5310,57 +5310,82 @@ sock_initobj(PyObject *self, PyObject *args, PyObject *kwds)
 }
 
 
-/* Type object for socket objects. */
+// /* Type object for socket objects. */
+//
+// static PyTypeObject sock_type = {
+//     PyVarObject_HEAD_INIT(0, 0)         /* Must fill in type value later */
+//     "_socket.socket",                           /* tp_name */
+//     sizeof(PySocketSockObject),                 /* tp_basicsize */
+//     0,                                          /* tp_itemsize */
+//     (destructor)sock_dealloc,                   /* tp_dealloc */
+//     0,                                          /* tp_vectorcall_offset */
+//     0,                                          /* tp_getattr */
+//     0,                                          /* tp_setattr */
+//     0,                                          /* tp_as_async */
+//     (reprfunc)sock_repr,                        /* tp_repr */
+//     0,                                          /* tp_as_number */
+//     0,                                          /* tp_as_sequence */
+//     0,                                          /* tp_as_mapping */
+//     0,                                          /* tp_hash */
+//     0,                                          /* tp_call */
+//     0,                                          /* tp_str */
+//     PyObject_GenericGetAttr,                    /* tp_getattro */
+//     0,                                          /* tp_setattro */
+//     0,                                          /* tp_as_buffer */
+//     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,   /* tp_flags */
+//     sock_doc,                                   /* tp_doc */
+//     0,                                          /* tp_traverse */
+//     0,                                          /* tp_clear */
+//     0,                                          /* tp_richcompare */
+//     0,                                          /* tp_weaklistoffset */
+//     0,                                          /* tp_iter */
+//     0,                                          /* tp_iternext */
+//     sock_methods,                               /* tp_methods */
+//     sock_memberlist,                            /* tp_members */
+//     sock_getsetlist,                            /* tp_getset */
+//     0,                                          /* tp_base */
+//     0,                                          /* tp_dict */
+//     0,                                          /* tp_descr_get */
+//     0,                                          /* tp_descr_set */
+//     0,                                          /* tp_dictoffset */
+//     sock_initobj,                               /* tp_init */
+//     PyType_GenericAlloc,                        /* tp_alloc */
+//     sock_new,                                   /* tp_new */
+//     PyObject_Del,                               /* tp_free */
+//     0,                                          /* tp_is_gc */
+//     0,                                          /* tp_bases */
+//     0,                                          /* tp_mro */
+//     0,                                          /* tp_cache */
+//     0,                                          /* tp_subclasses */
+//     0,                                          /* tp_weaklist */
+//     0,                                          /* tp_del */
+//     0,                                          /* tp_version_tag */
+//     (destructor)sock_finalize,                  /* tp_finalize */
+// };
 
-static PyTypeObject sock_type = {
-    PyVarObject_HEAD_INIT(0, 0)         /* Must fill in type value later */
-    "_socket.socket",                           /* tp_name */
-    sizeof(PySocketSockObject),                 /* tp_basicsize */
-    0,                                          /* tp_itemsize */
-    (destructor)sock_dealloc,                   /* tp_dealloc */
-    0,                                          /* tp_vectorcall_offset */
-    0,                                          /* tp_getattr */
-    0,                                          /* tp_setattr */
-    0,                                          /* tp_as_async */
-    (reprfunc)sock_repr,                        /* tp_repr */
-    0,                                          /* tp_as_number */
-    0,                                          /* tp_as_sequence */
-    0,                                          /* tp_as_mapping */
-    0,                                          /* tp_hash */
-    0,                                          /* tp_call */
-    0,                                          /* tp_str */
-    PyObject_GenericGetAttr,                    /* tp_getattro */
-    0,                                          /* tp_setattro */
-    0,                                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,   /* tp_flags */
-    sock_doc,                                   /* tp_doc */
-    0,                                          /* tp_traverse */
-    0,                                          /* tp_clear */
-    0,                                          /* tp_richcompare */
-    0,                                          /* tp_weaklistoffset */
-    0,                                          /* tp_iter */
-    0,                                          /* tp_iternext */
-    sock_methods,                               /* tp_methods */
-    sock_memberlist,                            /* tp_members */
-    sock_getsetlist,                            /* tp_getset */
-    0,                                          /* tp_base */
-    0,                                          /* tp_dict */
-    0,                                          /* tp_descr_get */
-    0,                                          /* tp_descr_set */
-    0,                                          /* tp_dictoffset */
-    sock_initobj,                               /* tp_init */
-    PyType_GenericAlloc,                        /* tp_alloc */
-    sock_new,                                   /* tp_new */
-    PyObject_Del,                               /* tp_free */
-    0,                                          /* tp_is_gc */
-    0,                                          /* tp_bases */
-    0,                                          /* tp_mro */
-    0,                                          /* tp_cache */
-    0,                                          /* tp_subclasses */
-    0,                                          /* tp_weaklist */
-    0,                                          /* tp_del */
-    0,                                          /* tp_version_tag */
-    (destructor)sock_finalize,                  /* tp_finalize */
+
+static PyType_Slot socket_type_slots[] = {
+    {Py_tp_dealloc, sock_dealloc},
+    {Py_tp_repr, sock_repr},
+    {Py_tp_getattro, PyObject_GenericGetAttr},
+    {Py_tp_doc, sock_doc},
+    {Py_tp_methods, sock_methods},
+    {Py_tp_members, sock_memberlist},
+    {Py_tp_getset, sock_getsetlist},
+    {Py_tp_init, sock_initobj},
+    {Py_tp_alloc, PyType_GenericAlloc},
+    {Py_tp_new, sock_new},
+    {Py_tp_free, PyObject_Del},
+    {Py_tp_finalize, sock_finalize},
+    {0, 0},
+};
+
+static PyType_Spec socket_type_spec = {
+    "_socket.socket",
+    sizeof(PySocketSockObject),
+    0,
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    socket_type_slots
 };
 
 
@@ -7055,7 +7080,7 @@ sock_get_api(void)
         return NULL;
     }
 
-    capi->Sock_Type = (PyTypeObject *)Py_NewRef(&sock_type);
+    capi->Sock_Type = (PyTypeObject *)Py_NewRef(sock_type);
     capi->error = Py_NewRef(PyExc_OSError);
     capi->timeout_error = Py_NewRef(PyExc_TimeoutError);
     return capi;
@@ -7103,7 +7128,12 @@ PyInit__socket(void)
     }
 #endif
 
-    Py_SET_TYPE(&sock_type, &PyType_Type);
+    sock_type = (PyTypeObject *)PyType_FromSpec(&socket_type_spec);
+    if (sock_type == NULL) {
+        return NULL;
+    }
+
+    Py_SET_TYPE(sock_type, &PyType_Type);
     m = PyModule_Create(&socketmodule);
     if (m == NULL)
         return NULL;
@@ -7124,13 +7154,13 @@ PyInit__socket(void)
     PyModule_AddObject(m, "gaierror", socket_gaierror);
     PyModule_AddObjectRef(m, "timeout", PyExc_TimeoutError);
 
-    Py_INCREF((PyObject *)&sock_type);
+    Py_INCREF((PyObject *)sock_type);
     if (PyModule_AddObject(m, "SocketType",
-                           (PyObject *)&sock_type) != 0)
+                           (PyObject *)sock_type) != 0)
         return NULL;
-    Py_INCREF((PyObject *)&sock_type);
+    Py_INCREF((PyObject *)sock_type);
     if (PyModule_AddObject(m, "socket",
-                           (PyObject *)&sock_type) != 0)
+                           (PyObject *)sock_type) != 0)
         return NULL;
 
 #ifdef ENABLE_IPV6
