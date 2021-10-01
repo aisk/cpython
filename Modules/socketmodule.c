@@ -512,11 +512,17 @@ remove_unusable_flags(PyObject *m)
 static PyObject *socket_herror;
 static PyObject *socket_gaierror;
 
-/* A forward reference to the socket type object.
-   The sock_type variable contains pointers to various functions,
-   some of which call new_sockobject(), which uses sock_type, so
-   there has to be a circular reference. */
-static PyTypeObject *sock_type;
+typedef struct {
+    PyTypeObject *sock_type;
+} _socket_module_state;
+
+static inline _socket_module_state *
+get_socket_state(PyObject *module)
+{
+    void *state = PyModule_GetState(module);
+    assert(state != NULL);
+    return (_socket_module_state *)state;
+}
 
 #if defined(HAVE_POLL_H)
 #include <poll.h>
@@ -1002,11 +1008,13 @@ init_sockobject(PySocketSockObject *s,
    in NEWOBJ()). */
 
 static PySocketSockObject *
-new_sockobject(SOCKET_T fd, int family, int type, int proto)
+new_sockobject(PyObject *module, SOCKET_T fd, int family, int type, int proto)
 {
+    _socket_module_state *state = get_socket_state(module);
+
     PySocketSockObject *s;
     s = (PySocketSockObject *)
-        PyType_GenericNew(sock_type, NULL, NULL);
+        PyType_GenericNew(state->sock_type, NULL, NULL);
     if (s == NULL)
         return NULL;
     if (init_sockobject(s, fd, family, type, proto) == -1) {
@@ -5309,61 +5317,6 @@ sock_initobj(PyObject *self, PyObject *args, PyObject *kwds)
 
 }
 
-
-// /* Type object for socket objects. */
-//
-// static PyTypeObject sock_type = {
-//     PyVarObject_HEAD_INIT(0, 0)         /* Must fill in type value later */
-//     "_socket.socket",                           /* tp_name */
-//     sizeof(PySocketSockObject),                 /* tp_basicsize */
-//     0,                                          /* tp_itemsize */
-//     (destructor)sock_dealloc,                   /* tp_dealloc */
-//     0,                                          /* tp_vectorcall_offset */
-//     0,                                          /* tp_getattr */
-//     0,                                          /* tp_setattr */
-//     0,                                          /* tp_as_async */
-//     (reprfunc)sock_repr,                        /* tp_repr */
-//     0,                                          /* tp_as_number */
-//     0,                                          /* tp_as_sequence */
-//     0,                                          /* tp_as_mapping */
-//     0,                                          /* tp_hash */
-//     0,                                          /* tp_call */
-//     0,                                          /* tp_str */
-//     PyObject_GenericGetAttr,                    /* tp_getattro */
-//     0,                                          /* tp_setattro */
-//     0,                                          /* tp_as_buffer */
-//     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,   /* tp_flags */
-//     sock_doc,                                   /* tp_doc */
-//     0,                                          /* tp_traverse */
-//     0,                                          /* tp_clear */
-//     0,                                          /* tp_richcompare */
-//     0,                                          /* tp_weaklistoffset */
-//     0,                                          /* tp_iter */
-//     0,                                          /* tp_iternext */
-//     sock_methods,                               /* tp_methods */
-//     sock_memberlist,                            /* tp_members */
-//     sock_getsetlist,                            /* tp_getset */
-//     0,                                          /* tp_base */
-//     0,                                          /* tp_dict */
-//     0,                                          /* tp_descr_get */
-//     0,                                          /* tp_descr_set */
-//     0,                                          /* tp_dictoffset */
-//     sock_initobj,                               /* tp_init */
-//     PyType_GenericAlloc,                        /* tp_alloc */
-//     sock_new,                                   /* tp_new */
-//     PyObject_Del,                               /* tp_free */
-//     0,                                          /* tp_is_gc */
-//     0,                                          /* tp_bases */
-//     0,                                          /* tp_mro */
-//     0,                                          /* tp_cache */
-//     0,                                          /* tp_subclasses */
-//     0,                                          /* tp_weaklist */
-//     0,                                          /* tp_del */
-//     0,                                          /* tp_version_tag */
-//     (destructor)sock_finalize,                  /* tp_finalize */
-// };
-
-
 static PyType_Slot socket_type_slots[] = {
     {Py_tp_dealloc, sock_dealloc},
     {Py_tp_repr, sock_repr},
@@ -6017,7 +5970,6 @@ Duplicate an integer socket file descriptor.  This is like os.dup(), but for\n\
 sockets; on some platforms os.dup() won't work for socket file descriptors.");
 #endif
 
-
 #ifdef HAVE_SOCKETPAIR
 /* Create a pair of sockets using the socketpair() function.
    Arguments as for socket() except the default family is AF_UNIX if
@@ -6078,10 +6030,10 @@ socket_socketpair(PyObject *self, PyObject *args)
     if (_Py_set_inheritable(sv[1], 0, atomic_flag_works) < 0)
         goto finally;
 
-    s0 = new_sockobject(sv[0], family, type, proto);
+    s0 = new_sockobject(self, sv[0], family, type, proto);
     if (s0 == NULL)
         goto finally;
-    s1 = new_sockobject(sv[1], family, type, proto);
+    s1 = new_sockobject(self, sv[1], family, type, proto);
     if (s1 == NULL)
         goto finally;
     res = PyTuple_Pack(2, s0, s1);
@@ -7072,15 +7024,17 @@ sock_destroy_api(PyObject *capsule)
 }
 
 static PySocketModule_APIObject *
-sock_get_api(void)
+sock_get_api(PyObject *module)
 {
+    _socket_module_state *state = get_socket_state(module);
+
     PySocketModule_APIObject *capi = PyMem_Malloc(sizeof(PySocketModule_APIObject));
     if (capi == NULL) {
         PyErr_NoMemory();
         return NULL;
     }
 
-    capi->Sock_Type = (PyTypeObject *)Py_NewRef(sock_type);
+    capi->Sock_Type = (PyTypeObject *)Py_NewRef(state->sock_type);
     capi->error = Py_NewRef(PyExc_OSError);
     capi->timeout_error = Py_NewRef(PyExc_TimeoutError);
     return capi;
@@ -7106,7 +7060,7 @@ static struct PyModuleDef socketmodule = {
     PyModuleDef_HEAD_INIT,
     PySocket_MODULE_NAME,
     socket_doc,
-    -1,
+    sizeof(_socket_module_state),
     socket_methods,
     NULL,
     NULL,
@@ -7128,15 +7082,18 @@ PyInit__socket(void)
     }
 #endif
 
-    sock_type = (PyTypeObject *)PyType_FromSpec(&socket_type_spec);
-    if (sock_type == NULL) {
-        return NULL;
-    }
-
-    Py_SET_TYPE(sock_type, &PyType_Type);
     m = PyModule_Create(&socketmodule);
     if (m == NULL)
         return NULL;
+
+    _socket_module_state* state = get_socket_state(m);
+
+    state->sock_type = (PyTypeObject *)PyType_FromSpec(&socket_type_spec);
+    if (state->sock_type == NULL) {
+        return NULL;
+    }
+
+    Py_SET_TYPE(state->sock_type, &PyType_Type);
 
     Py_INCREF(PyExc_OSError);
     PyModule_AddObject(m, "error", PyExc_OSError);
@@ -7154,13 +7111,13 @@ PyInit__socket(void)
     PyModule_AddObject(m, "gaierror", socket_gaierror);
     PyModule_AddObjectRef(m, "timeout", PyExc_TimeoutError);
 
-    Py_INCREF((PyObject *)sock_type);
+    Py_INCREF((PyObject *)state->sock_type);
     if (PyModule_AddObject(m, "SocketType",
-                           (PyObject *)sock_type) != 0)
+                           (PyObject *)state->sock_type) != 0)
         return NULL;
-    Py_INCREF((PyObject *)sock_type);
+    Py_INCREF((PyObject *)state->sock_type);
     if (PyModule_AddObject(m, "socket",
-                           (PyObject *)sock_type) != 0)
+                           (PyObject *)state->sock_type) != 0)
         return NULL;
 
 #ifdef ENABLE_IPV6
@@ -7172,7 +7129,7 @@ PyInit__socket(void)
     PyModule_AddObject(m, "has_ipv6", has_ipv6);
 
     /* Export C API */
-    PySocketModule_APIObject *capi = sock_get_api();
+    PySocketModule_APIObject *capi = sock_get_api(m);
     if (capi == NULL) {
         Py_DECREF(m);
         return NULL;
