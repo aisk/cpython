@@ -10,6 +10,8 @@ extern "C" {
 
 #include "pycore_atomic.h"    /* _Py_atomic_address */
 #include "pycore_gil.h"       // struct _gil_runtime_state
+#include "pycore_long_state.h"  // struct _Py_long_state
+#include "pycore_unicodeobject.h"  // struct _Py_unicode_runtime_ids
 
 /* ceval state */
 
@@ -52,6 +54,12 @@ typedef struct _Py_AuditHookEntry {
 /* Full Python runtime state */
 
 typedef struct pyruntimestate {
+    /* Has been initialized to a safe state.
+
+       In order to be effective, this must be set to 0 during or right
+       after allocation. */
+    int _initialized;
+
     /* Is running Py_PreInitialize()? */
     int preinitializing;
 
@@ -93,6 +101,8 @@ typedef struct pyruntimestate {
 
     unsigned long main_thread;
 
+    struct _Py_long_state int_state;
+
 #define NEXITFUNCS 32
     void (*exitfuncs[NEXITFUNCS])(void);
     int nexitfuncs;
@@ -102,16 +112,29 @@ typedef struct pyruntimestate {
 
     PyPreConfig preconfig;
 
+    // Audit values must be preserved when Py_Initialize()/Py_Finalize()
+    // is called multiple times.
     Py_OpenCodeHookFunction open_code_hook;
     void *open_code_userdata;
     _Py_AuditHookEntry *audit_hook_head;
+
+    struct _Py_unicode_runtime_ids unicode_ids;
 
     // XXX Consolidate globals found via the check-c-globals script.
 } _PyRuntimeState;
 
 #define _PyRuntimeState_INIT \
-    {.preinitialized = 0, .core_initialized = 0, .initialized = 0}
+    { \
+        ._initialized = 0, \
+    }
 /* Note: _PyRuntimeState_INIT sets other fields to 0/NULL */
+
+static inline void
+_PyRuntimeState_reset(_PyRuntimeState *runtime)
+{
+    /* Make it match _PyRuntimeState_INIT. */
+    memset(runtime, 0, sizeof(*runtime));
+}
 
 
 PyAPI_DATA(_PyRuntimeState) _PyRuntime;
@@ -120,7 +143,7 @@ PyAPI_FUNC(PyStatus) _PyRuntimeState_Init(_PyRuntimeState *runtime);
 PyAPI_FUNC(void) _PyRuntimeState_Fini(_PyRuntimeState *runtime);
 
 #ifdef HAVE_FORK
-PyAPI_FUNC(void) _PyRuntimeState_ReInitThreads(_PyRuntimeState *runtime);
+extern PyStatus _PyRuntimeState_ReInitThreads(_PyRuntimeState *runtime);
 #endif
 
 /* Initialize _PyRuntimeState.
