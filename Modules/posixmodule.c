@@ -15799,6 +15799,54 @@ os_waitstatus_to_exitcode_impl(PyObject *module, PyObject *status_obj)
 #endif
 
 
+/*[clinic input]
+os.set_thread_error_mode
+
+    mode: unsigned_int(bitwise=True)
+    /
+
+Wrapper around SetThreadErrorMode.
+[clinic start generated code]*/
+
+static PyObject *
+os_set_thread_error_mode_impl(PyObject *module, unsigned int mode)
+/*[clinic end generated code: output=b4c0bf76d907636d input=190a2567017b2adc]*/
+{
+    unsigned int old;
+    BOOL succeed;
+
+    _Py_BEGIN_SUPPRESS_IPH
+    succeed = SetThreadErrorMode(mode, &old);
+    _Py_END_SUPPRESS_IPH
+
+    if (succeed == FALSE) {
+        return  PyErr_SetFromWindowsErr(GetLastError());
+    }
+
+    return PyLong_FromUnsignedLong(old);
+}
+
+
+/*[clinic input]
+os.get_thread_error_mode
+
+Wrapper around GetThreadErrorMode.
+[clinic start generated code]*/
+
+static PyObject *
+os_get_thread_error_mode_impl(PyObject *module)
+/*[clinic end generated code: output=c542d42e0c1bc033 input=d3b7ee0b3a014d25]*/
+{
+    unsigned int res;
+
+    _Py_BEGIN_SUPPRESS_IPH
+    res = GetThreadErrorMode();
+    _Py_END_SUPPRESS_IPH
+
+    return PyLong_FromUnsignedLong(res);
+}
+
+
 static PyMethodDef posix_methods[] = {
 
     OS_STAT_METHODDEF
@@ -15996,6 +16044,10 @@ static PyMethodDef posix_methods[] = {
     OS__PATH_ISFILE_METHODDEF
     OS__PATH_ISLINK_METHODDEF
     OS__PATH_EXISTS_METHODDEF
+
+    OS_SET_THREAD_ERROR_MODE_METHODDEF
+    OS_GET_THREAD_ERROR_MODE_METHODDEF
+
     {NULL,              NULL}            /* Sentinel */
 };
 

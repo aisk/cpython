@@ -1136,3 +1136,16 @@ if name == 'nt':
             cookie,
             nt._remove_dll_directory
         )
+
+    from msvcrt import SetErrorMode as set_error_mode
+
+    try:
+        from msvcrt import (SEM_FAILCRITICALERRORS, SEM_NOALIGNMENTFAULTEXCEPT,
+            SEM_NOGPFAULTERRORBOX, SEM_NOOPENFILEERRORBOX)
+    except ImportError:
+        pass
+
+    try:
+        from msvcrt import GetErrorMode as get_error_mode
+    except ImportError:
+        pass

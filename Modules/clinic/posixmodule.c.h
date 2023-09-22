@@ -11369,6 +11369,52 @@ exit:
 
 #endif /* (defined(WIFEXITED) || defined(MS_WINDOWS)) */
 
+PyDoc_STRVAR(os_set_thread_error_mode__doc__,
+"set_thread_error_mode($module, mode, /)\n"
+"--\n"
+"\n"
+"Wrapper around SetThreadErrorMode.");
+
+#define OS_SET_THREAD_ERROR_MODE_METHODDEF    \
+    {"set_thread_error_mode", (PyCFunction)os_set_thread_error_mode, METH_O, os_set_thread_error_mode__doc__},
+
+static PyObject *
+os_set_thread_error_mode_impl(PyObject *module, unsigned int mode);
+
+static PyObject *
+os_set_thread_error_mode(PyObject *module, PyObject *arg)
+{
+    PyObject *return_value = NULL;
+    unsigned int mode;
+
+    mode = (unsigned int)PyLong_AsUnsignedLongMask(arg);
+    if (mode == (unsigned int)-1 && PyErr_Occurred()) {
+        goto exit;
+    }
+    return_value = os_set_thread_error_mode_impl(module, mode);
+
+exit:
+    return return_value;
+}
+
+PyDoc_STRVAR(os_get_thread_error_mode__doc__,
+"get_thread_error_mode($module, /)\n"
+"--\n"
+"\n"
+"Wrapper around GetThreadErrorMode.");
+
+#define OS_GET_THREAD_ERROR_MODE_METHODDEF    \
+    {"get_thread_error_mode", (PyCFunction)os_get_thread_error_mode, METH_NOARGS, os_get_thread_error_mode__doc__},
+
+static PyObject *
+os_get_thread_error_mode_impl(PyObject *module);
+
+static PyObject *
+os_get_thread_error_mode(PyObject *module, PyObject *Py_UNUSED(ignored))
+{
+    return os_get_thread_error_mode_impl(module);
+}
+
 #ifndef OS_TTYNAME_METHODDEF
     #define OS_TTYNAME_METHODDEF
 #endif /* !defined(OS_TTYNAME_METHODDEF) */
@@ -11988,4 +12034,4 @@ exit:
 #ifndef OS_WAITSTATUS_TO_EXITCODE_METHODDEF
     #define OS_WAITSTATUS_TO_EXITCODE_METHODDEF
 #endif /* !defined(OS_WAITSTATUS_TO_EXITCODE_METHODDEF) */
-/*[clinic end generated code: output=1dd5aa7495cd6e3a input=a9049054013a1b77]*/
+/*[clinic end generated code: output=b3af5899cb86fdfa input=a9049054013a1b77]*/
