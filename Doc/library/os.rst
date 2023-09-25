@@ -1596,8 +1596,8 @@ or `the MSDN <https://msdn.microsoft.com/en-us/library/z0kc8e3z.aspx>`_ on Windo
    *trailers* are arbitrary sequences of buffers that are written before and
    after the data from *in_fd* is written. It returns the same as the first case.
 
-   On macOS and FreeBSD, a value of ``0`` for *count* specifies to send until
-   the end of *in_fd* is reached.
+   On Windows, macOS and FreeBSD, a value of ``0`` for *count* specifies to send
+   until the end of *in_fd* is reached.
 
    All platforms support sockets as *out_fd* file descriptor, and some platforms
    allow other types (e.g. regular file, pipe) as well.
@@ -1605,7 +1605,7 @@ or `the MSDN <https://msdn.microsoft.com/en-us/library/z0kc8e3z.aspx>`_ on Windo
    Cross-platform applications should not use *headers*, *trailers* and *flags*
    arguments.
 
-   .. availability:: Unix, not Emscripten, not WASI.
+   .. availability:: Windows, Unix, not Emscripten, not WASI.
 
    .. note::
 
@@ -1616,6 +1616,9 @@ or `the MSDN <https://msdn.microsoft.com/en-us/library/z0kc8e3z.aspx>`_ on Windo
 
    .. versionchanged:: 3.9
       Parameters *out* and *in* was renamed to *out_fd* and *in_fd*.
+
+   .. versionchanged:: 3.13
+      Windows support is added.
 
 
 .. data:: SF_NODISKIO

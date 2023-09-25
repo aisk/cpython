@@ -1138,6 +1138,8 @@ if name == 'nt':
         )
 
     def sendfile(out_fd, in_fd, offset, count):
+        """Copy count bytes from file descriptor in_fd to file descriptor out_fd.
+        """
         import _overlapped
         import msvcrt
 
