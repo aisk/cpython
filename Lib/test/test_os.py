@@ -3449,7 +3449,8 @@ class TestSendfile(unittest.IsolatedAsyncioTestCase):
     DATA = b"12345abcde" * 16 * 1024  # 160 KiB
     SUPPORT_HEADERS_TRAILERS = not sys.platform.startswith("linux") and \
                                not sys.platform.startswith("solaris") and \
-                               not sys.platform.startswith("sunos")
+                               not sys.platform.startswith("sunos") and \
+                               not sys.platform.startswith("win32")
     requires_headers_trailers = unittest.skipUnless(SUPPORT_HEADERS_TRAILERS,
             'requires headers and trailers support')
     requires_32b = unittest.skipUnless(sys.maxsize < 2**32,

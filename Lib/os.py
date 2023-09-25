@@ -1136,3 +1136,16 @@ if name == 'nt':
             cookie,
             nt._remove_dll_directory
         )
+
+    def sendfile(out_fd, in_fd, offset, count):
+        import _overlapped
+        import msvcrt
+
+        ov = _overlapped.Overlapped()
+        offset_low = offset & 0xffff_ffff
+        offset_high = (offset >> 32) & 0xffff_ffff
+        ov.TransmitFile(out_fd, msvcrt.get_osfhandle(in_fd), offset_low,
+                        offset_high, count, 0, 0)
+        n = ov.getresult(True)
+        ov.cancel()
+        return n
