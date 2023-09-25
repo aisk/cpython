@@ -1942,7 +1942,7 @@ class GeneralModuleTests(unittest.TestCase):
             def fileno(self):
                 return self.fd
         with socket.socket() as sock:
-            fd = os.open(os.curdir, os.O_RDONLY)
+            fd = os.open(sys.executable, os.O_RDONLY)
             os.close(fd)
             with self.assertRaises(socket._GiveupOnSendfile):
                 sock._sendfile_use_sendfile(File(fd))

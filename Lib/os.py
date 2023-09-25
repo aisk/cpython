@@ -1148,6 +1148,10 @@ if name == 'nt':
         offset_high = (offset >> 32) & 0xffff_ffff
         ov.TransmitFile(out_fd, msvcrt.get_osfhandle(in_fd), offset_low,
                         offset_high, count, 0, 0)
-        n = ov.getresult(True)
-        ov.cancel()
+        try:
+            n = ov.getresult(True)
+        except WindowsError as e:
+            if e.winerror == 38:
+                return 0
+            raise
         return n
