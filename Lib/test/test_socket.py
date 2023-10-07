@@ -3,6 +3,7 @@ from test import support
 from test.support import os_helper
 from test.support import socket_helper
 from test.support import threading_helper
+from unittest import mock
 
 import errno
 import io
@@ -6047,6 +6048,15 @@ class TestSocketSharing(SocketTCPTest):
                     source.close()
 
 
+os_sendfile = os.sendfile
+
+
+def mocked_sendfile(sockno, fileno, offset, blocksize, *args, **kwargs):
+    blocksize = 1000
+    # print(f'offset: {offset}, blocksize: {blocksize}')
+    return os_sendfile(sockno, fileno, offset, blocksize, *args, **kwargs)
+
+
 class SendfileUsingSendTest(ThreadedTCPSocketTest):
     """
     Test the send() implementation of socket.sendfile().
@@ -6310,6 +6320,28 @@ class SendfileUsingSendTest(ThreadedTCPSocketTest):
                                        meth, file, count=0)
                 self.assertRaisesRegex(ValueError, "positive integer",
                                        meth, file, count=-1)
+
+    def _test_multi_blocks_timeout_triggered(self):
+        address = self.serv.getsockname()
+        sock = socket.create_connection(address)
+        file = open(os_helper.TESTFN, 'rb')
+        with sock, file:
+            sock.settimeout(1)
+            meth = self.meth_from_sock(sock)
+            # with mock.patch('os.sendfile', side_effect=mocked_sendfile):
+            # self.assertRaises(TimeoutError, meth, file)
+            start = time.time()
+            meth(file)
+            time_usage = time.time() - start
+            print(f'time usage: {time_usage}')
+
+    def test_multi_blocks_timeout_triggered(self):
+        conn = self.accept_conn()
+        while True:
+            data = conn.recv(1000)
+            if not data:
+                break
+            time.sleep(0.001)
 
 
 @unittest.skipUnless(hasattr(os, "sendfile"),
