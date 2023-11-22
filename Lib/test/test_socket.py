@@ -6173,6 +6173,8 @@ class SendfileUsingSendTest(ThreadedTCPSocketTest):
     BUFSIZE = 8192
     FILEDATA = b""
     TIMEOUT = support.LOOPBACK_TIMEOUT
+    if sys.platform == "win32":
+        TIMEOUT = None
 
     @classmethod
     def setUpClass(cls):
@@ -6294,8 +6296,7 @@ class SendfileUsingSendTest(ThreadedTCPSocketTest):
     def _testCount(self):
         address = self.serv.getsockname()
         file = open(os_helper.TESTFN, 'rb')
-        sock = socket.create_connection(address,
-                                        timeout=support.LOOPBACK_TIMEOUT)
+        sock = socket.create_connection(address, timeout=self.TIMEOUT)
         with sock, file:
             count = 5000007
             meth = self.meth_from_sock(sock)
@@ -6315,8 +6316,7 @@ class SendfileUsingSendTest(ThreadedTCPSocketTest):
     def _testCountSmall(self):
         address = self.serv.getsockname()
         file = open(os_helper.TESTFN, 'rb')
-        sock = socket.create_connection(address,
-                                        timeout=support.LOOPBACK_TIMEOUT)
+        sock = socket.create_connection(address, timeout=self.TIMEOUT)
         with sock, file:
             count = 1
             meth = self.meth_from_sock(sock)
@@ -6336,7 +6336,7 @@ class SendfileUsingSendTest(ThreadedTCPSocketTest):
     def _testCountWithOffset(self):
         address = self.serv.getsockname()
         file = open(os_helper.TESTFN, 'rb')
-        with socket.create_connection(address, timeout=2) as sock, file as file:
+        with socket.create_connection(address, timeout=self.TIMEOUT) as sock, file as file:
             count = 100007
             meth = self.meth_from_sock(sock)
             sent = meth(file, offset=2007, count=count)
@@ -6369,6 +6369,9 @@ class SendfileUsingSendTest(ThreadedTCPSocketTest):
     # timeout (non-triggered)
 
     def _testWithTimeout(self):
+        if type(self) == SendfileUsingSendfileTest and sys.platform == "win32":
+            reason = "sendfile on windows dosen't support timeout"
+            raise unittest.SkipTest(reason)
         address = self.serv.getsockname()
         file = open(os_helper.TESTFN, 'rb')
         sock = socket.create_connection(address,
@@ -6379,6 +6382,9 @@ class SendfileUsingSendTest(ThreadedTCPSocketTest):
             self.assertEqual(sent, self.FILESIZE)
 
     def testWithTimeout(self):
+        if type(self) == SendfileUsingSendfileTest and sys.platform == "win32":
+            reason = "sendfile on windows dosen't support timeout"
+            raise unittest.SkipTest(reason)
         conn = self.accept_conn()
         data = self.recv_data(conn)
         self.assertEqual(len(data), self.FILESIZE)
@@ -6387,6 +6393,9 @@ class SendfileUsingSendTest(ThreadedTCPSocketTest):
     # timeout (triggered)
 
     def _testWithTimeoutTriggeredSend(self):
+        if type(self) == SendfileUsingSendfileTest and sys.platform == "win32":
+            reason = "sendfile on windows dosen't support timeout"
+            raise unittest.SkipTest(reason)
         address = self.serv.getsockname()
         with open(os_helper.TESTFN, 'rb') as file:
             with socket.create_connection(address) as sock:
@@ -6395,6 +6404,9 @@ class SendfileUsingSendTest(ThreadedTCPSocketTest):
                 self.assertRaises(TimeoutError, meth, file)
 
     def testWithTimeoutTriggeredSend(self):
+        if type(self) == SendfileUsingSendfileTest and sys.platform == "win32":
+            reason = "sendfile on windows dosen't support timeout"
+            raise unittest.SkipTest(reason)
         conn = self.accept_conn()
         conn.recv(88192)
         # bpo-45212: the wait here needs to be longer than the client-side timeout (0.01s)
