@@ -364,6 +364,10 @@ class socket(_socket.socket):
             timeout = self.gettimeout()
             if timeout == 0:
                 raise ValueError("non-blocking sockets are not supported")
+            if timeout and sys.platform.startswith("win32"):
+                # Current implementation dosen't support sendfile with timeout
+                # on Windows.
+                raise _GiveupOnSendfile()
             # poll/select have the advantage of not requiring any
             # extra file descriptor, contrarily to epoll/kqueue
             # (also, they require a single syscall).
