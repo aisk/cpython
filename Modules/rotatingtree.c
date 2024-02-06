@@ -1,29 +1,16 @@
 #include "rotatingtree.h"
 
+#include <stdlib.h> // rand()
+
 #define KEY_LOWER_THAN(key1, key2)  ((char*)(key1) < (char*)(key2))
-
-/* The randombits() function below is a fast-and-dirty generator that
- * is probably irregular enough for our purposes.  Note that it's biased:
- * I think that ones are slightly more probable than zeroes.  It's not
- * important here, though.
- */
-
-static unsigned int random_value = 1;
-static unsigned int random_stream = 0;
 
 static int
 randombits(int bits)
 {
-    int result;
-    if (random_stream < (1U << bits)) {
-        random_value *= 1082527;
-        random_stream = random_value;
-    }
-    result = random_stream & ((1<<bits)-1);
-    random_stream >>= bits;
+    int result = rand();
+    result &= (1 << bits) - 1;
     return result;
 }
-
 
 /* Insert a new node into the tree.
    (*root) is modified to point to the new root. */
