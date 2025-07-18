@@ -440,6 +440,8 @@ struct _Py_global_strings {
         STRUCT_FOR_ID(fanout)
         STRUCT_FOR_ID(fd)
         STRUCT_FOR_ID(fd2)
+        STRUCT_FOR_ID(fd_in)
+        STRUCT_FOR_ID(fd_out)
         STRUCT_FOR_ID(fdel)
         STRUCT_FOR_ID(fget)
         STRUCT_FOR_ID(fields)

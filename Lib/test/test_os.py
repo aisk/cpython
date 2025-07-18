@@ -632,6 +632,173 @@ class FileTests(unittest.TestCase):
             # 345678 are copied in the file (in_skip + bytes_to_copy)
             self.assertEqual(read[out_seek:], data[:i])
 
+    @unittest.skipUnless(hasattr(os, 'tee'), 'requires os.tee')
+    def test_tee_invalid_values(self):
+        with self.assertRaises(ValueError):
+            os.tee(0, 1, -10)
+
+    @unittest.skipUnless(hasattr(os, 'tee'), 'requires os.tee')
+    def test_tee_basic(self):
+        data = b'0123456789'
+        bytes_to_tee = 5
+
+        # Create two pipes for tee operation
+        read_fd1, write_fd1 = os.pipe()
+        self.addCleanup(lambda: os.close(read_fd1))
+        self.addCleanup(lambda: os.close(write_fd1))
+        
+        read_fd2, write_fd2 = os.pipe()
+        self.addCleanup(lambda: os.close(read_fd2))
+        self.addCleanup(lambda: os.close(write_fd2))
+
+        # Write data to the first pipe
+        os.write(write_fd1, data)
+        
+        try:
+            # Test basic tee functionality - duplicate data without consuming
+            i = os.tee(read_fd1, write_fd2, bytes_to_tee)
+        except OSError as e:
+            # Handle the case in which Python was compiled
+            # in a system with the syscall but without support
+            # in the kernel.
+            if e.errno != errno.ENOSYS:
+                raise
+            self.skipTest(e)
+        else:
+            # The number of duplicated bytes can be less than
+            # the number of bytes originally requested.
+            self.assertIn(i, range(0, bytes_to_tee + 1))
+
+            # The data should still be available in the first pipe
+            read1 = os.read(read_fd1, 100)
+            self.assertEqual(read1, data[:i])
+            
+            # The data should be available in the second pipe
+            read2 = os.read(read_fd2, 100)
+            self.assertEqual(read2, data[:i])
+
+    @unittest.skipUnless(hasattr(os, 'tee'), 'requires os.tee')
+    def test_tee_zero_length(self):
+        # Create two pipes
+        read_fd1, write_fd1 = os.pipe()
+        self.addCleanup(lambda: os.close(read_fd1))
+        self.addCleanup(lambda: os.close(write_fd1))
+        
+        read_fd2, write_fd2 = os.pipe()
+        self.addCleanup(lambda: os.close(read_fd2))
+        self.addCleanup(lambda: os.close(write_fd2))
+
+        try:
+            result = os.tee(read_fd1, write_fd2, 0)
+            self.assertEqual(result, 0)
+        except OSError as e:
+            if e.errno != errno.ENOSYS:
+                raise
+            self.skipTest(e)
+
+    @unittest.skipUnless(hasattr(os, 'tee'), 'requires os.tee')
+    def test_tee_with_splice_integration(self):
+        # Test tee followed by splice to demonstrate non-consuming behavior
+        data = b'0123456789'
+        bytes_to_tee = 6
+
+        # Create pipes
+        read_fd1, write_fd1 = os.pipe()
+        self.addCleanup(lambda: os.close(read_fd1))
+        self.addCleanup(lambda: os.close(write_fd1))
+        
+        read_fd2, write_fd2 = os.pipe()
+        self.addCleanup(lambda: os.close(read_fd2))
+        self.addCleanup(lambda: os.close(write_fd2))
+
+        # Create a temporary file for splice destination
+        TESTFN_TEE = os_helper.TESTFN + ".tee"
+        create_file(TESTFN_TEE)
+        self.addCleanup(os_helper.unlink, TESTFN_TEE)
+
+        out_file = open(TESTFN_TEE, 'w+b')
+        self.addCleanup(out_file.close)
+        out_fd = out_file.fileno()
+
+        # Write data to the first pipe
+        os.write(write_fd1, data)
+
+        try:
+            # First, use tee to duplicate data without consuming
+            teed_bytes = os.tee(read_fd1, write_fd2, bytes_to_tee)
+            self.assertIn(teed_bytes, range(0, bytes_to_tee + 1))
+
+            # Then use splice to actually consume the data
+            spliced_bytes = os.splice(read_fd1, out_fd, bytes_to_tee)
+            self.assertIn(spliced_bytes, range(0, bytes_to_tee + 1))
+
+            # Verify tee data is in second pipe
+            read2 = os.read(read_fd2, 100)
+            self.assertEqual(read2, data[:spliced_bytes])
+
+            # Verify splice data is in the file
+            with open(TESTFN_TEE, 'rb') as in_file:
+                file_data = in_file.read()
+            self.assertEqual(file_data, data[:spliced_bytes])
+
+        except OSError as e:
+            if e.errno != errno.ENOSYS:
+                raise
+            self.skipTest(e)
+
+    @unittest.skipUnless(hasattr(os, 'tee'), 'requires os.tee')
+    def test_tee_error_cases(self):
+        # Test invalid file descriptors
+        read_fd, write_fd = os.pipe()
+        self.addCleanup(lambda: os.close(read_fd))
+        self.addCleanup(lambda: os.close(write_fd))
+
+        # Test with invalid file descriptors
+        with self.assertRaises(OSError):
+            os.tee(-1, write_fd, 1)
+        
+        with self.assertRaises(OSError):
+            os.tee(read_fd, -1, 1)
+
+        # Test with regular files (should fail as tee requires pipes)
+        TESTFN_FILE = os_helper.TESTFN + ".file"
+        create_file(TESTFN_FILE, b"test")
+        self.addCleanup(os_helper.unlink, TESTFN_FILE)
+
+        with open(TESTFN_FILE, 'rb') as f:
+            file_fd = f.fileno()
+            with self.assertRaises(OSError):
+                os.tee(file_fd, write_fd, 1)
+
+    @unittest.skipUnless(hasattr(os, 'tee'), 'requires os.tee')
+    def test_tee_flags(self):
+        # Test with SPLICE_F_NONBLOCK flag
+        data = b'test'
+
+        read_fd1, write_fd1 = os.pipe()
+        self.addCleanup(lambda: os.close(read_fd1))
+        self.addCleanup(lambda: os.close(write_fd1))
+        
+        read_fd2, write_fd2 = os.pipe()
+        self.addCleanup(lambda: os.close(read_fd2))
+        self.addCleanup(lambda: os.close(write_fd2))
+
+        try:
+            # Test with NONBLOCK flag - should not block on empty pipe
+            result = os.tee(read_fd1, write_fd2, 1, flags=os.SPLICE_F_NONBLOCK)
+            # Should return 0 (no data available)
+            self.assertEqual(result, 0)
+
+            # Write data and test again
+            os.write(write_fd1, data)
+            result = os.tee(read_fd1, write_fd2, len(data), flags=os.SPLICE_F_NONBLOCK)
+            self.assertIn(result, range(0, len(data) + 1))
+
+        except OSError as e:
+            if e.errno != errno.ENOSYS:
+                raise
+            self.skipTest(e)
+
 
 # Test attributes on return values from os.*stat* family.
 class StatAttributeTests(unittest.TestCase):

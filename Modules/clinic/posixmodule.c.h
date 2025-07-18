@@ -8934,6 +8934,118 @@ exit:
 
 #endif /* ((defined(HAVE_SPLICE) && !defined(_AIX))) */
 
+#if ((defined(HAVE_TEE)))
+
+PyDoc_STRVAR(os_tee__doc__,
+"tee($module, /, fd_in, fd_out, length, flags=0)\n"
+"--\n"
+"\n"
+"Duplicate pipe content from fd_in to fd_out without consuming the data.\n"
+"\n"
+"  fd_in\n"
+"    Input file descriptor.\n"
+"  fd_out\n"
+"    Output file descriptor.\n"
+"  length\n"
+"    Number of bytes to duplicate.\n"
+"  flags\n"
+"    Flags to modify the semantics of the call.\n"
+"\n"
+"This function duplicates up to length bytes of data from the pipe referred\n"
+"to by fd_in to the pipe referred to by fd_out. It does not consume the\n"
+"data from fd_in, allowing subsequent read operations or splice() calls.\n"
+"\n"
+"The flags parameter accepts the same values as splice(), including:\n"
+"- SPLICE_F_MOVE: Currently has no effect for tee()\n"
+"- SPLICE_F_NONBLOCK: Do not block on I/O\n"
+"- SPLICE_F_MORE: Currently has no effect for tee()\n"
+"- SPLICE_F_GIFT: Unused for tee()");
+
+#define OS_TEE_METHODDEF    \
+    {"tee", _PyCFunction_CAST(os_tee), METH_FASTCALL|METH_KEYWORDS, os_tee__doc__},
+
+static PyObject *
+os_tee_impl(PyObject *module, int fd_in, int fd_out, Py_ssize_t length,
+            unsigned int flags);
+
+static PyObject *
+os_tee(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+{
+    PyObject *return_value = NULL;
+    #if defined(Py_BUILD_CORE) && !defined(Py_BUILD_CORE_MODULE)
+
+    #define NUM_KEYWORDS 4
+    static struct {
+        PyGC_Head _this_is_not_used;
+        PyObject_VAR_HEAD
+        Py_hash_t ob_hash;
+        PyObject *ob_item[NUM_KEYWORDS];
+    } _kwtuple = {
+        .ob_base = PyVarObject_HEAD_INIT(&PyTuple_Type, NUM_KEYWORDS)
+        .ob_hash = -1,
+        .ob_item = { &_Py_ID(fd_in), &_Py_ID(fd_out), &_Py_ID(length), &_Py_ID(flags), },
+    };
+    #undef NUM_KEYWORDS
+    #define KWTUPLE (&_kwtuple.ob_base.ob_base)
+
+    #else  // !Py_BUILD_CORE
+    #  define KWTUPLE NULL
+    #endif  // !Py_BUILD_CORE
+
+    static const char * const _keywords[] = {"fd_in", "fd_out", "length", "flags", NULL};
+    static _PyArg_Parser _parser = {
+        .keywords = _keywords,
+        .fname = "tee",
+        .kwtuple = KWTUPLE,
+    };
+    #undef KWTUPLE
+    PyObject *argsbuf[4];
+    Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 3;
+    int fd_in;
+    int fd_out;
+    Py_ssize_t length;
+    unsigned int flags = 0;
+
+    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser,
+            /*minpos*/ 3, /*maxpos*/ 4, /*minkw*/ 0, /*varpos*/ 0, argsbuf);
+    if (!args) {
+        goto exit;
+    }
+    fd_in = PyLong_AsInt(args[0]);
+    if (fd_in == -1 && PyErr_Occurred()) {
+        goto exit;
+    }
+    fd_out = PyLong_AsInt(args[1]);
+    if (fd_out == -1 && PyErr_Occurred()) {
+        goto exit;
+    }
+    {
+        Py_ssize_t ival = -1;
+        PyObject *iobj = _PyNumber_Index(args[2]);
+        if (iobj != NULL) {
+            ival = PyLong_AsSsize_t(iobj);
+            Py_DECREF(iobj);
+        }
+        if (ival == -1 && PyErr_Occurred()) {
+            goto exit;
+        }
+        length = ival;
+    }
+    if (!noptargs) {
+        goto skip_optional_pos;
+    }
+    if (!_PyLong_UnsignedInt_Converter(args[3], &flags)) {
+        goto exit;
+    }
+skip_optional_pos:
+    return_value = os_tee_impl(module, fd_in, fd_out, length, flags);
+
+exit:
+    return return_value;
+}
+
+#endif /* ((defined(HAVE_TEE))) */
+
 #if defined(HAVE_MKFIFO)
 
 PyDoc_STRVAR(os_mkfifo__doc__,
@@ -13245,6 +13357,10 @@ os__emscripten_debugger(PyObject *module, PyObject *Py_UNUSED(ignored))
     #define OS_SPLICE_METHODDEF
 #endif /* !defined(OS_SPLICE_METHODDEF) */
 
+#ifndef OS_TEE_METHODDEF
+    #define OS_TEE_METHODDEF
+#endif /* !defined(OS_TEE_METHODDEF) */
+
 #ifndef OS_MKFIFO_METHODDEF
     #define OS_MKFIFO_METHODDEF
 #endif /* !defined(OS_MKFIFO_METHODDEF) */
@@ -13440,4 +13556,4 @@ os__emscripten_debugger(PyObject *module, PyObject *Py_UNUSED(ignored))
 #ifndef OS__EMSCRIPTEN_DEBUGGER_METHODDEF
     #define OS__EMSCRIPTEN_DEBUGGER_METHODDEF
 #endif /* !defined(OS__EMSCRIPTEN_DEBUGGER_METHODDEF) */
-/*[clinic end generated code: output=6cfddb3b77dc7a40 input=a9049054013a1b77]*/
+/*[clinic end generated code: output=50e85bbd3e414dd0 input=a9049054013a1b77]*/

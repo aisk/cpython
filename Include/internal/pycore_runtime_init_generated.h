@@ -947,6 +947,8 @@ extern "C" {
     INIT_ID(fanout), \
     INIT_ID(fd), \
     INIT_ID(fd2), \
+    INIT_ID(fd_in), \
+    INIT_ID(fd_out), \
     INIT_ID(fdel), \
     INIT_ID(fget), \
     INIT_ID(fields), \

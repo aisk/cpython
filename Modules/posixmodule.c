@@ -12589,6 +12589,61 @@ os_splice_impl(PyObject *module, int src, int dst, Py_ssize_t count,
 }
 #endif /* HAVE_SPLICE*/
 
+// TODO: remove this
+#define HAVE_TEE
+
+#if (defined(HAVE_TEE))
+/*[clinic input]
+os.tee
+    fd_in: int
+        Input file descriptor.
+    fd_out: int
+        Output file descriptor.
+    length: Py_ssize_t
+        Number of bytes to duplicate.
+    flags: unsigned_int = 0
+        Flags to modify the semantics of the call.
+
+Duplicate pipe content from fd_in to fd_out without consuming the data.
+
+This function duplicates up to length bytes of data from the pipe referred
+to by fd_in to the pipe referred to by fd_out. It does not consume the
+data from fd_in, allowing subsequent read operations or splice() calls.
+
+The flags parameter accepts the same values as splice(), including:
+- SPLICE_F_MOVE: Currently has no effect for tee()
+- SPLICE_F_NONBLOCK: Do not block on I/O
+- SPLICE_F_MORE: Currently has no effect for tee()
+- SPLICE_F_GIFT: Unused for tee()
+[clinic start generated code]*/
+
+static PyObject *
+os_tee_impl(PyObject *module, int fd_in, int fd_out, Py_ssize_t length,
+            unsigned int flags)
+/*[clinic end generated code: output=2e34b80c7bb502c3 input=45bda2cb7856e2f7]*/
+{
+    Py_ssize_t ret;
+    int async_err = 0;
+
+    if (length < 0) {
+        PyErr_SetString(PyExc_ValueError, "negative value for 'length' not allowed");
+        return NULL;
+    }
+
+    do {
+        Py_BEGIN_ALLOW_THREADS
+        ret = tee(fd_in, fd_out, length, flags);
+        Py_END_ALLOW_THREADS
+    } while (ret < 0 && errno == EINTR && !(async_err = PyErr_CheckSignals()));
+
+    if (ret < 0) {
+        return (!async_err) ? posix_error() : NULL;
+    }
+
+    return PyLong_FromSsize_t(ret);
+}
+#endif /* HAVE_TEE */
+
 #ifdef HAVE_MKFIFO
 /*[clinic input]
 os.mkfifo
@@ -17006,6 +17061,7 @@ static PyMethodDef posix_methods[] = {
     OS_READLINK_METHODDEF
     OS_COPY_FILE_RANGE_METHODDEF
     OS_SPLICE_METHODDEF
+    OS_TEE_METHODDEF
     OS_RENAME_METHODDEF
     OS_REPLACE_METHODDEF
     OS_RMDIR_METHODDEF
