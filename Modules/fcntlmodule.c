@@ -11,6 +11,7 @@
 #include <fcntl.h>                // fcntl()
 #include <string.h>               // memcpy()
 #include <sys/ioctl.h>            // ioctl()
+#include <stddef.h>               // offsetof()
 #ifdef HAVE_SYS_FILE_H
 #  include <sys/file.h>           // flock()
 #endif
@@ -31,6 +32,44 @@ module fcntl
 /*[clinic end generated code: output=da39a3ee5e6b4b0d input=124b58387c158179]*/
 
 #include "clinic/fcntlmodule.c.h"
+
+#ifdef F_ATTRIBUTION_TAG
+/* Simple wrapper for fattributiontag_t structure */
+static PyObject *
+fattributiontag_new(PyObject *self, PyObject *args)
+{
+    unsigned int ft_flags = 0;
+    const char *ft_attribution_name = "";
+
+    if (!PyArg_ParseTuple(args, "|Is", &ft_flags, &ft_attribution_name)) {
+        return NULL;
+    }
+
+    /* For now, just return a dict representation */
+    PyObject *result = PyDict_New();
+    if (result == NULL) {
+        return NULL;
+    }
+
+    if (PyDict_SetItemString(result, "ft_flags", PyLong_FromUnsignedLong(ft_flags)) < 0) {
+        Py_DECREF(result);
+        return NULL;
+    }
+
+    if (PyDict_SetItemString(result, "ft_attribution_name", PyUnicode_FromString(ft_attribution_name)) < 0) {
+        Py_DECREF(result);
+        return NULL;
+    }
+
+    return result;
+}
+
+static PyMethodDef fattributiontag_methods[] = {
+    {"fattributiontag", fattributiontag_new, METH_VARARGS,
+     "Create a fattributiontag structure for F_ATTRIBUTION_TAG operations"},
+    {NULL, NULL, 0, NULL}
+};
+#endif
 
 /*[clinic input]
 fcntl.fcntl
@@ -687,6 +726,18 @@ all_ins(PyObject* m)
 #ifdef F_NOCACHE
     if (PyModule_AddIntMacro(m, F_NOCACHE)) return -1;
 #endif
+#ifdef F_ATTRIBUTION_TAG
+    if (PyModule_AddIntMacro(m, F_ATTRIBUTION_TAG)) return -1;
+#endif
+#ifdef F_CREATE_TAG
+    if (PyModule_AddIntMacro(m, F_CREATE_TAG)) return -1;
+#endif
+#ifdef F_DELETE_TAG
+    if (PyModule_AddIntMacro(m, F_DELETE_TAG)) return -1;
+#endif
+#ifdef F_QUERY_TAG
+    if (PyModule_AddIntMacro(m, F_QUERY_TAG)) return -1;
+#endif
 
 /* FreeBSD specifics */
 #ifdef F_DUP2FD
@@ -808,6 +859,13 @@ fcntl_exec(PyObject *module)
     if (all_ins(module) < 0) {
         return -1;
     }
+
+#ifdef F_ATTRIBUTION_TAG
+    if (PyModule_AddFunctions(module, fattributiontag_methods) < 0) {
+        return -1;
+    }
+#endif
+
     return 0;
 }
 
