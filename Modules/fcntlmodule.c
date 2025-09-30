@@ -43,19 +43,22 @@ typedef struct {
 static PyMemberDef fattributiontag_members[] = {
     {"ft_flags", Py_T_UINT, offsetof(PyFattributiontagObject, attr_tag.ft_flags), 0, "flags word"},
     {"ft_hash", Py_T_ULONGLONG, offsetof(PyFattributiontagObject, attr_tag.ft_hash), 0, "hash of attribution tag name"},
+    {"ft_attribution_name", Py_T_STRING_INPLACE, offsetof(PyFattributiontagObject, attr_tag.ft_attribution_name), 0, "attribution tag name"},
     {NULL}  /* Sentinel */
 };
 
 static PyObject *
 fattributiontag_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 {
-    static char *keywords[] = {"ft_flags", NULL};
-    static const char fmt[] = "|I";
+    static char *keywords[] = {"ft_flags", "ft_attribution_name", NULL};
+    static const char fmt[] = "|Is#";
     PyFattributiontagObject *ob;
     unsigned int ft_flags = 0;
+    const char *ft_attribution_name = NULL;
+    Py_ssize_t name_len = 0;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, fmt, keywords,
-                                     &ft_flags)) {
+                                     &ft_flags, &ft_attribution_name, &name_len)) {
         return NULL;
     }
 
@@ -68,15 +71,28 @@ fattributiontag_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     memset(&ob->attr_tag, 0, sizeof(fattributiontag_t));
     ob->attr_tag.ft_flags = ft_flags;
 
+    /* Handle ft_attribution_name string */
+    if (ft_attribution_name != NULL) {
+        if (name_len > ATTRIBUTION_NAME_MAX - 1) {
+            Py_DECREF(ob);
+            PyErr_SetString(PyExc_ValueError, "ft_attribution_name too long");
+            return NULL;
+        }
+        strcpy(ob->attr_tag.ft_attribution_name, ft_attribution_name);
+    } else {
+        strcpy(ob->attr_tag.ft_attribution_name, "");
+    }
+
     return (PyObject *)ob;
 }
 
 static PyObject *
 fattributiontag_repr(PyFattributiontagObject *self)
 {
-    return PyUnicode_FromFormat("fattributiontag(ft_flags=%u, ft_hash=%llu)",
+    return PyUnicode_FromFormat("fattributiontag(ft_flags=%u, ft_hash=%llu, ft_attribution_name='%s')",
                                self->attr_tag.ft_flags,
-                               self->attr_tag.ft_hash);
+                               self->attr_tag.ft_hash,
+                               self->attr_tag.ft_attribution_name);
 }
 
 static PyType_Slot fattributiontag_slots[] = {
