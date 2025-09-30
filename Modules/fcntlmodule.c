@@ -34,40 +34,63 @@ module fcntl
 #include "clinic/fcntlmodule.c.h"
 
 #ifdef F_ATTRIBUTION_TAG
-/* Simple wrapper for fattributiontag_t structure */
+/* fattributiontag_t Python wrapper type */
+typedef struct {
+    PyObject_HEAD
+    fattributiontag_t attr_tag;
+} PyFattributiontagObject;
+
+static PyMemberDef fattributiontag_members[] = {
+    {"ft_flags", Py_T_UINT, offsetof(PyFattributiontagObject, attr_tag.ft_flags), 0, "flags word"},
+    {"ft_hash", Py_T_ULONGLONG, offsetof(PyFattributiontagObject, attr_tag.ft_hash), 0, "hash of attribution tag name"},
+    {NULL}  /* Sentinel */
+};
+
 static PyObject *
-fattributiontag_new(PyObject *self, PyObject *args)
+fattributiontag_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 {
+    static char *keywords[] = {"ft_flags", NULL};
+    static const char fmt[] = "|I";
+    PyFattributiontagObject *ob;
     unsigned int ft_flags = 0;
-    const char *ft_attribution_name = "";
 
-    if (!PyArg_ParseTuple(args, "|Is", &ft_flags, &ft_attribution_name)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, fmt, keywords,
+                                     &ft_flags)) {
         return NULL;
     }
 
-    /* For now, just return a dict representation */
-    PyObject *result = PyDict_New();
-    if (result == NULL) {
+    ob = PyObject_New(PyFattributiontagObject, type);
+    if (ob == NULL) {
         return NULL;
     }
 
-    if (PyDict_SetItemString(result, "ft_flags", PyLong_FromUnsignedLong(ft_flags)) < 0) {
-        Py_DECREF(result);
-        return NULL;
-    }
+    /* Initialize the C structure */
+    memset(&ob->attr_tag, 0, sizeof(fattributiontag_t));
+    ob->attr_tag.ft_flags = ft_flags;
 
-    if (PyDict_SetItemString(result, "ft_attribution_name", PyUnicode_FromString(ft_attribution_name)) < 0) {
-        Py_DECREF(result);
-        return NULL;
-    }
-
-    return result;
+    return (PyObject *)ob;
 }
 
-static PyMethodDef fattributiontag_methods[] = {
-    {"fattributiontag", fattributiontag_new, METH_VARARGS,
-     "Create a fattributiontag structure for F_ATTRIBUTION_TAG operations"},
-    {NULL, NULL, 0, NULL}
+static PyObject *
+fattributiontag_repr(PyFattributiontagObject *self)
+{
+    return PyUnicode_FromFormat("fattributiontag(ft_flags=%u, ft_hash=%llu)",
+                               self->attr_tag.ft_flags,
+                               self->attr_tag.ft_hash);
+}
+
+static PyType_Slot fattributiontag_slots[] = {
+    {Py_tp_new, fattributiontag_new},
+    {Py_tp_repr, fattributiontag_repr},
+    {Py_tp_members, fattributiontag_members},
+    {0, NULL}
+};
+
+static PyType_Spec fattributiontag_spec = {
+    .name = "fcntl.fattributiontag",
+    .basicsize = sizeof(PyFattributiontagObject),
+    .flags = Py_TPFLAGS_DEFAULT,
+    .slots = fattributiontag_slots,
 };
 #endif
 
@@ -861,9 +884,16 @@ fcntl_exec(PyObject *module)
     }
 
 #ifdef F_ATTRIBUTION_TAG
-    if (PyModule_AddFunctions(module, fattributiontag_methods) < 0) {
+    PyObject *fattributiontag_type = PyType_FromModuleAndSpec(
+        module, &fattributiontag_spec, NULL);
+    if (!fattributiontag_type) {
         return -1;
     }
+    if (PyModule_AddType(module, (PyTypeObject*)fattributiontag_type) < 0) {
+        Py_DECREF(fattributiontag_type);
+        return -1;
+    }
+    Py_DECREF(fattributiontag_type);
 #endif
 
     return 0;
