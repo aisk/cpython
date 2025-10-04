@@ -31,8 +31,6 @@ module fcntl
 [clinic start generated code]*/
 /*[clinic end generated code: output=da39a3ee5e6b4b0d input=124b58387c158179]*/
 
-#include "clinic/fcntlmodule.c.h"
-
 #ifdef F_ATTRIBUTION_TAG
 /* fattributiontag_t Python wrapper type */
 typedef struct {
@@ -109,6 +107,8 @@ static PyType_Spec fattributiontag_spec = {
     .slots = fattributiontag_slots,
 };
 #endif
+
+#include "clinic/fcntlmodule.c.h"
 
 /*[clinic input]
 fcntl.fcntl
@@ -580,6 +580,47 @@ fcntl_lockf_impl(PyObject *module, int fd, int code, PyObject *lenobj,
     Py_RETURN_NONE;
 }
 
+/*[clinic input]
+fcntl.attribution_tag
+    fd: fildes
+    tag: object(type="PyFattributiontagObject *")
+    /
+Perform attribution tag operations on file descriptor `fd`.
+
+The operation type is specified by the `ft_flags` field in the `tag` object:
+- F_CREATE_TAG: Create a new attribution tag
+- F_DELETE_TAG: Delete an existing attribution tag
+- F_QUERY_TAG: Query the current attribution tag
+
+For QUERY operations, the tag object will be filled with the current
+attribution information.
+[clinic start generated code]*/
+
+static PyObject *
+fcntl_attribution_tag_impl(PyObject *module, int fd,
+                           PyFattributiontagObject *tag)
+/*[clinic end generated code: output=3ec6eb4188bc7b97 input=5de684828a2cd19e]*/
+{
+    int ret;
+    int async_err = 0;
+
+    if (PySys_Audit("fcntl.attribution_tag", "ii", fd, tag->attr_tag.ft_flags) < 0) {
+        return NULL;
+    }
+
+    do {
+        Py_BEGIN_ALLOW_THREADS
+        ret = fcntl(fd, F_ATTRIBUTION_TAG, &tag->attr_tag);
+        Py_END_ALLOW_THREADS
+    } while (ret == -1 && errno == EINTR && !(async_err = PyErr_CheckSignals()));
+
+    if (ret < 0) {
+        return !async_err ? PyErr_SetFromErrno(PyExc_OSError) : NULL;
+    }
+
+    Py_RETURN_NONE;
+}
+
 /* List of functions */
 
 static PyMethodDef fcntl_methods[] = {
@@ -587,6 +628,7 @@ static PyMethodDef fcntl_methods[] = {
     FCNTL_IOCTL_METHODDEF
     FCNTL_FLOCK_METHODDEF
     FCNTL_LOCKF_METHODDEF
+    FCNTL_ATTRIBUTION_TAG_METHODDEF
     {NULL, NULL}  /* sentinel */
 };
 

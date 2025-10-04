@@ -265,4 +265,46 @@ skip_optional:
 exit:
     return return_value;
 }
-/*[clinic end generated code: output=9773e44da302dc7c input=a9049054013a1b77]*/
+
+PyDoc_STRVAR(fcntl_attribution_tag__doc__,
+"attribution_tag($module, fd, tag, /)\n"
+"--\n"
+"\n"
+"Perform attribution tag operations on file descriptor `fd`.\n"
+"\n"
+"The operation type is specified by the `ft_flags` field in the `tag` object:\n"
+"- F_CREATE_TAG: Create a new attribution tag\n"
+"- F_DELETE_TAG: Delete an existing attribution tag\n"
+"- F_QUERY_TAG: Query the current attribution tag\n"
+"\n"
+"For QUERY operations, the tag object will be filled with the current\n"
+"attribution information.");
+
+#define FCNTL_ATTRIBUTION_TAG_METHODDEF    \
+    {"attribution_tag", _PyCFunction_CAST(fcntl_attribution_tag), METH_FASTCALL, fcntl_attribution_tag__doc__},
+
+static PyObject *
+fcntl_attribution_tag_impl(PyObject *module, int fd,
+                           PyFattributiontagObject *tag);
+
+static PyObject *
+fcntl_attribution_tag(PyObject *module, PyObject *const *args, Py_ssize_t nargs)
+{
+    PyObject *return_value = NULL;
+    int fd;
+    PyFattributiontagObject *tag;
+
+    if (!_PyArg_CheckPositional("attribution_tag", nargs, 2, 2)) {
+        goto exit;
+    }
+    fd = PyObject_AsFileDescriptor(args[0]);
+    if (fd < 0) {
+        goto exit;
+    }
+    tag = (PyFattributiontagObject *)args[1];
+    return_value = fcntl_attribution_tag_impl(module, fd, tag);
+
+exit:
+    return return_value;
+}
+/*[clinic end generated code: output=12f10b04ba0798d0 input=a9049054013a1b77]*/
