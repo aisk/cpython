@@ -5964,6 +5964,115 @@ Pointer_bool(PyObject *self)
     return res;
 }
 
+/* Create a new Pointer of the same type pointing to base + n * itemsize */
+static PyObject *
+_Pointer_new_at_offset(ctypes_state *st, PyObject *myself, Py_ssize_t n)
+{
+    StgInfo *stginfo, *iteminfo;
+    if (PyStgInfo_FromObject(st, myself, &stginfo) < 0) return NULL;
+    assert(stginfo);
+    if (PyStgInfo_FromType(st, stginfo->proto, &iteminfo) < 0) return NULL;
+    assert(iteminfo);
+
+    PyObject *new_obj = generic_pycdata_new(st, Py_TYPE(myself), NULL, NULL);
+    if (new_obj == NULL) return NULL;
+
+    char *base;
+    Py_BEGIN_CRITICAL_SECTION(_CDataObject_CAST(myself));
+    base = *(char **)_CDataObject_CAST(myself)->b_ptr;
+    Py_END_CRITICAL_SECTION();
+
+    *(void **)_CDataObject_CAST(new_obj)->b_ptr = base + n * iteminfo->size;
+    return new_obj;
+}
+
+static PyObject *
+Pointer_add(PyObject *left, PyObject *right)
+{
+    PyObject *ptr_obj, *int_obj;
+    if (PyIndex_Check(right) && !PyIndex_Check(left)) {
+        ptr_obj = left; int_obj = right;   /* ptr + n */
+    } else if (PyIndex_Check(left) && !PyIndex_Check(right)) {
+        ptr_obj = right; int_obj = left;   /* n + ptr */
+    } else {
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+    ctypes_state *st = get_module_state_by_def(Py_TYPE(Py_TYPE(ptr_obj)));
+    Py_ssize_t n = PyNumber_AsSsize_t(int_obj, PyExc_OverflowError);
+    if (n == -1 && PyErr_Occurred()) return NULL;
+    return _Pointer_new_at_offset(st, ptr_obj, n);
+}
+
+static PyObject *
+Pointer_subtract(PyObject *left, PyObject *right)
+{
+    /* Detect if left is a ctypes Pointer instance (reject int - ptr reflected case) */
+    PyObject *mod = PyType_GetModuleByDef(Py_TYPE(Py_TYPE(left)), &_ctypesmodule);
+    if (mod == NULL) {
+        PyErr_Clear();
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+    ctypes_state *st = get_module_state(mod);
+
+    /* ptr1 - ptr2: same type → element count difference */
+    if (Py_TYPE(left) == Py_TYPE(right)) {
+        StgInfo *stginfo, *iteminfo;
+        if (PyStgInfo_FromObject(st, left, &stginfo) < 0) return NULL;
+        if (PyStgInfo_FromType(st, stginfo->proto, &iteminfo) < 0) return NULL;
+        if (iteminfo->size == 0) {
+            PyErr_SetString(PyExc_ValueError, "pointee type has zero size");
+            return NULL;
+        }
+        char *lptr, *rptr;
+        Py_BEGIN_CRITICAL_SECTION2(left, right);
+        lptr = *(char **)_CDataObject_CAST(left)->b_ptr;
+        rptr = *(char **)_CDataObject_CAST(right)->b_ptr;
+        Py_END_CRITICAL_SECTION2();
+        return PyLong_FromSsize_t((lptr - rptr) / iteminfo->size);
+    }
+
+    /* ptr - n: return new Pointer at offset */
+    if (PyIndex_Check(right)) {
+        Py_ssize_t n = PyNumber_AsSsize_t(right, PyExc_OverflowError);
+        if (n == -1 && PyErr_Occurred()) return NULL;
+        return _Pointer_new_at_offset(st, left, -n);
+    }
+
+    Py_RETURN_NOTIMPLEMENTED;
+}
+
+static PyObject *
+Pointer_inplace_add(PyObject *myself, PyObject *other)
+{
+    Py_ssize_t n = PyNumber_AsSsize_t(other, PyExc_OverflowError);
+    if (n == -1 && PyErr_Occurred()) return NULL;
+    ctypes_state *st = get_module_state_by_def(Py_TYPE(Py_TYPE(myself)));
+    StgInfo *stginfo, *iteminfo;
+    if (PyStgInfo_FromObject(st, myself, &stginfo) < 0) return NULL;
+    if (PyStgInfo_FromType(st, stginfo->proto, &iteminfo) < 0) return NULL;
+    Py_BEGIN_CRITICAL_SECTION(_CDataObject_CAST(myself));
+    *(char **)_CDataObject_CAST(myself)->b_ptr += n * iteminfo->size;
+    Py_END_CRITICAL_SECTION();
+    Py_INCREF(myself);
+    return myself;
+}
+
+static PyObject *
+Pointer_inplace_subtract(PyObject *myself, PyObject *other)
+{
+    Py_ssize_t n = PyNumber_AsSsize_t(other, PyExc_OverflowError);
+    if (n == -1 && PyErr_Occurred()) return NULL;
+    ctypes_state *st = get_module_state_by_def(Py_TYPE(Py_TYPE(myself)));
+    StgInfo *stginfo, *iteminfo;
+    if (PyStgInfo_FromObject(st, myself, &stginfo) < 0) return NULL;
+    if (PyStgInfo_FromType(st, stginfo->proto, &iteminfo) < 0) return NULL;
+    Py_BEGIN_CRITICAL_SECTION(_CDataObject_CAST(myself));
+    *(char **)_CDataObject_CAST(myself)->b_ptr -= n * iteminfo->size;
+    Py_END_CRITICAL_SECTION();
+    Py_INCREF(myself);
+    return myself;
+}
+
 static PyType_Slot pycpointer_slots[] = {
     {Py_tp_doc, (void *)PyDoc_STR("XXX to be provided")},
     {Py_tp_getset, Pointer_getsets},
@@ -5971,6 +6080,10 @@ static PyType_Slot pycpointer_slots[] = {
     {Py_tp_new, Pointer_new},
     {Py_bf_getbuffer, PyCData_NewGetBuffer},
     {Py_nb_bool, Pointer_bool},
+    {Py_nb_add, Pointer_add},
+    {Py_nb_subtract, Pointer_subtract},
+    {Py_nb_inplace_add, Pointer_inplace_add},
+    {Py_nb_inplace_subtract, Pointer_inplace_subtract},
     {Py_mp_subscript, Pointer_subscript},
     {Py_sq_item, Pointer_item},
     {Py_sq_ass_item, Pointer_ass_item},

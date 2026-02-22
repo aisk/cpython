@@ -483,5 +483,56 @@ class PointerTypeCacheTestCase(unittest.TestCase):
         self.assertIs(ptr._type_, c_int)
 
 
+class PointerArithmeticTestCase(unittest.TestCase):
+    def setUp(self):
+        arr = (c_int * 5)(10, 20, 30, 40, 50)
+        self.arr = arr
+        self.p = POINTER(c_int)(arr)
+
+    def test_add(self):
+        p2 = self.p + 2
+        self.assertIsNot(p2, self.p)
+        self.assertEqual(p2[0], 30)
+
+    def test_radd(self):
+        p2 = 2 + self.p
+        self.assertEqual(p2[0], 30)
+
+    def test_subtract_int(self):
+        p2 = self.p + 4
+        p3 = p2 - 2
+        self.assertEqual(p3[0], 30)
+
+    def test_subtract_ptr(self):
+        p2 = self.p + 3
+        self.assertEqual(p2 - self.p, 3)
+
+    def test_inplace_add(self):
+        orig = self.p
+        self.p += 1
+        self.assertIs(self.p, orig)
+        self.assertEqual(self.p[0], 20)
+
+    def test_inplace_subtract(self):
+        self.p += 2
+        orig = self.p
+        self.p -= 1
+        self.assertIs(self.p, orig)
+        self.assertEqual(self.p[0], 20)
+
+    def test_type_error_add(self):
+        with self.assertRaises(TypeError):
+            self.p + "x"
+
+    def test_type_error_subtract(self):
+        with self.assertRaises(TypeError):
+            5 - self.p
+
+    def test_different_type_subtract(self):
+        p2 = POINTER(c_double)(c_double(1.0))
+        with self.assertRaises(TypeError):
+            self.p - p2
+
+
 if __name__ == '__main__':
     unittest.main()
