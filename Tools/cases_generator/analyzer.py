@@ -1406,14 +1406,26 @@ def get_uop_cache_depths(uop: Uop) -> Iterator[tuple[int, int, int]]:
     exit_depth = ideal_outputs if at_end else ideal_inputs
     if uop.properties.escapes or uop.properties.sync_sp or has_array or is_large(uop):
         yield ideal_inputs, ideal_outputs, exit_depth
+        fallback_inputs = min(ideal_inputs, MAX_CACHED_REGISTER)
+        fallback_outputs = min(ideal_outputs, MAX_CACHED_REGISTER)
+        if (fallback_inputs, fallback_outputs) != (ideal_inputs, ideal_outputs):
+            fallback_exit = fallback_outputs if at_end else fallback_inputs
+            yield fallback_inputs, fallback_outputs, fallback_exit
         return
-    for inputs in range(MAX_GENERATED_CACHED_REGISTER + 1):
-        outputs = ideal_outputs - ideal_inputs + inputs
-        if outputs < ideal_outputs:
-            outputs = ideal_outputs
-        elif outputs > MAX_GENERATED_CACHED_REGISTER:
-            continue
-        yield inputs, outputs, outputs if at_end else inputs
+    seen: set[tuple[int, int, int]] = set()
+    for max_reg in (MAX_CACHED_REGISTER, MAX_GENERATED_CACHED_REGISTER):
+        capped_inputs = min(ideal_inputs, max_reg)
+        capped_outputs = min(ideal_outputs, max_reg)
+        for inputs in range(max_reg + 1):
+            outputs = capped_outputs - capped_inputs + inputs
+            if outputs < capped_outputs:
+                outputs = capped_outputs
+            elif outputs > max_reg:
+                continue
+            entry = (inputs, outputs, outputs if at_end else inputs)
+            if entry not in seen:
+                seen.add(entry)
+                yield entry
 
 
 def analyze_files(filenames: list[str]) -> Analysis:
